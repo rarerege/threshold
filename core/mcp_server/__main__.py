@@ -37,8 +37,9 @@ def main() -> None:
         secondary_after_min=int(os.environ.get("THRESHOLD_SECONDARY_AFTER_MIN", "20")),
     ))
 
-    mcp = build_server(engine, household_id, snapshot_dir=ROOT / "data" / "snapshots",
+    mcp = build_server(engine, household_id, snapshot_dir=ROOT / "data" / "snapshots", web_dir=ROOT / "web",
                        public_base_url=os.environ.get("PUBLIC_BASE_URL", f"http://{host}:{port}"))
+    print(f"\n  Threshold web client: http://{host}:{port}/\n  MCP endpoint:          http://{host}:{port}/mcp\n")
     uvicorn.run(build_app(mcp, engine, household_id), host=host, port=port, log_level="info")
 
 

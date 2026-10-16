@@ -32,6 +32,12 @@ from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 log = logging.getLogger(__name__)
 
 SNAPSHOT_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
+WEB_FILES = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript"),
+    "/mcp-client.js": ("mcp-client.js", "text/javascript"),
+    "/router.js": ("router.js", "text/javascript"),
+}
 Weekday = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 INSTRUCTIONS = """Threshold helps an adult child keep an eye on a parent who lives alone.
@@ -54,6 +60,7 @@ def build_server(
     *,
     snapshot_dir: Path,
     public_base_url: str = "http://127.0.0.1:8000",
+    web_dir: Path | None = None,
     ring_factory: Callable[[], RingClient] = RingClient.from_env,
     look: Callable[..., Awaitable[Any]] = look_at_door,
     find_event: Callable[..., Awaitable[dict]] = wait_for_event,
@@ -262,6 +269,15 @@ def build_server(
         if not SNAPSHOT_NAME.match(name) or not (snapshot_dir / name).is_file():
             return Response(status_code=404)
         return FileResponse(snapshot_dir / name, media_type="image/jpeg")
+
+    if web_dir is not None:
+        # The web MCP client is served from the same origin as /mcp, so no CORS is needed.
+        for path, (file, media) in WEB_FILES.items():
+            def make(file: str = file, media: str = media):
+                async def serve(request: Request) -> Response:
+                    return FileResponse(web_dir / file, media_type=media, headers={"Cache-Control": "no-cache"})
+                return serve
+            mcp.custom_route(path, methods=["GET"], include_in_schema=False)(make())
 
     return mcp
 
