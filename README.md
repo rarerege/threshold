@@ -54,11 +54,23 @@ Then edit `.env`: in Ring Developer Playground choose **Generate token** and pas
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Live Ring tests are skipped when `RING_ACCESS_TOKEN` isn't set.
+Live Ring tests are skipped when `RING_ACCESS_TOKEN` isn't set. `-m "not live"` skips them explicitly; `-m live` runs only them. Unit tests use recorded, id-redacted fixtures in `core/tests/fixtures/`, which you can re-record with `scripts\probe_live_view.py`.
 
 ## Run
 
-*TODO (Phases 2–4):* Ring smoke test, MCP server, web client.
+### Ring smoke test (Phase 2)
+
+Needs a fresh token in `.env`.
+
+```powershell
+.\scripts\ring_smoke.ps1             # device count, newest events, snapshot of newest event -> data\snapshot.jpg
+.\scripts\ring_smoke.ps1 -Look       # start a live view first (~10 s), snapshot from inside the new on_demand event
+.\scripts\ring_smoke.ps1 -Look -WaitEvent   # ...and wait (~45 s) until that event is listed in history
+```
+
+How "look at the door" works without a WebRTC stack: Threshold sends a WHEP offer, which on its own makes the device record an `on_demand` event. It downloads an `at_timestamp` snapshot from inside that event while the session is still open, then closes the session. The event only appears in history after its ~40 s window ends, so its id is matched afterwards by start time. See `docs/gates.md` and FL-05.
+
+*TODO (Phases 3–4):* MCP server, web client.
 
 ### MCP gate (Phase 0)
 
