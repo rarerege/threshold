@@ -1,0 +1,76 @@
+{
+  "data": [
+    {
+      "type": "history-events",
+      "id": "ID_5",
+      "attributes": {
+        "start": 1792141366373,
+        "event_type": "on_demand",
+        "is_third_party_reviewed": true,
+        "end": 1792141406020
+      },
+      "relationships": {
+        "cv_detections": {
+          "data": []
+        },
+        "source": {
+          "data": {
+            "type": "devices",
+            "id": "DEVICE_ID"
+          }
+        }
+      },
+      "meta": {
+        "riid": null
+      }
+    },
+    {
+      "type": "history-events",
+      "id": "ID_6",
+      "attributes": {
+        "is_third_party_reviewed": true,
+        "start": 1792141156889,
+        "event_type": "on_demand",
+        "end": 1792141196537
+      },
+      "relationships": {
+        "cv_detections": {
+          "data": []
+        },
+        "source": {
+          "data": {
+            "type": "devices",
+            "id": "DEVICE_ID"
+          }
+        }
+      },
+      "meta": {
+        "riid": null
+      }
+    },
+    {
+      "type": "history-events",
+      "id": "ID_7",
+      "attributes": {
+        "start": 1792126697052,
+        "event_type": "on_demand",
+        "is_third_party_reviewed": true,
+        "end": 1792126736767
+      },
+      "relationships": {
+        "source": {
+          "data": {
+            "type": "devices",
+            "id": "DEVICE_ID"
+          }
+        },
+        "cv_detections": {
+          "data": []
+        }
+      },
+      "meta": {
+        "riid": null
+      }
+    }
+  ]
+}

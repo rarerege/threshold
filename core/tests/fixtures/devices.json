@@ -1,0 +1,53 @@
+{
+  "data": [
+    {
+      "type": "devices",
+      "id": "DEVICE_ID",
+      "attributes": {
+        "image_url": "https://app-content.ring.com/shared/images/devices/square_device_images/DoorbellPro/rvdp_3x.png",
+        "name": "Playground Device"
+      },
+      "relationships": {
+        "configurations": {
+          "data": {
+            "type": "device-configurations",
+            "id": "ID_1"
+          },
+          "links": {
+            "related": "/v1/devices/DEVICE_ID/configurations"
+          }
+        },
+        "location": {
+          "data": {
+            "type": "locations",
+            "id": "ID_2"
+          },
+          "links": {
+            "related": "/v1/devices/DEVICE_ID/location"
+          }
+        },
+        "status": {
+          "data": {
+            "type": "device-status",
+            "id": "ID_3"
+          },
+          "links": {
+            "related": "/v1/devices/DEVICE_ID/status"
+          }
+        },
+        "capabilities": {
+          "data": {
+            "type": "device-capabilities",
+            "id": "ID_4"
+          },
+          "links": {
+            "related": "/v1/devices/DEVICE_ID/capabilities"
+          }
+        }
+      }
+    }
+  ],
+  "meta": {
+    "time": "2026-10-16T09:02:42Z"
+  }
+}
