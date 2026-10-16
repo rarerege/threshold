@@ -12,11 +12,32 @@ from core.store.models import (
     AlertTransition,
     CheckIn,
     Decision,
+    DecisionKind,
+    DoorLook,
     Event,
+    Household,
     Visit,
 )
 
+OPEN_STATES = ("ok", "checking_in", "caregiver_alerted", "secondary_alerted")
+
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS households (
+    id TEXT PRIMARY KEY,
+    config TEXT NOT NULL  -- Household model as JSON
+);
+
+CREATE TABLE IF NOT EXISTS door_looks (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    requested_at INTEGER NOT NULL,
+    snapshot_ts INTEGER NOT NULL,
+    snapshot_path TEXT NOT NULL,
+    ring_event_id TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_door_looks_household_ts ON door_looks (household_id, requested_at);
+
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     household_id TEXT NOT NULL,
@@ -30,7 +51,7 @@ CREATE INDEX IF NOT EXISTS ix_events_household_ts ON events (household_id, ts_st
 CREATE TABLE IF NOT EXISTS decisions (
     id TEXT PRIMARY KEY,
     household_id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK (kind IN ('missed_checkin','visit_matched','visit_unexpected')),
+    kind TEXT NOT NULL CHECK (kind IN ('missed_checkin','help_requested','visit_matched','visit_unexpected')),
     evidence TEXT NOT NULL DEFAULT '[]',
     ts INTEGER NOT NULL
 );
@@ -82,6 +103,54 @@ def connect(path: str | Path = ":memory:") -> sqlite3.Connection:
     return conn
 
 
+# --- households -----------------------------------------------------------
+
+def save_household(conn: sqlite3.Connection, h: Household) -> None:
+    conn.execute("INSERT OR REPLACE INTO households (id, config) VALUES (?, ?)", (h.id, h.model_dump_json()))
+    conn.commit()
+
+
+def get_household(conn: sqlite3.Connection, household_id: str) -> Household | None:
+    r = conn.execute("SELECT config FROM households WHERE id = ?", (household_id,)).fetchone()
+    return Household.model_validate_json(r["config"]) if r else None
+
+
+# --- door looks -----------------------------------------------------------
+
+def insert_door_look(conn: sqlite3.Connection, d: DoorLook) -> None:
+    conn.execute(
+        "INSERT INTO door_looks (id, household_id, device_id, requested_at, snapshot_ts, snapshot_path, ring_event_id)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (d.id, d.household_id, d.device_id, d.requested_at, d.snapshot_ts, d.snapshot_path, d.ring_event_id),
+    )
+    conn.commit()
+
+
+def set_door_look_event(conn: sqlite3.Connection, look_id: str, ring_event_id: str) -> None:
+    conn.execute("UPDATE door_looks SET ring_event_id = ? WHERE id = ?", (ring_event_id, look_id))
+    conn.commit()
+
+
+def get_door_look(conn: sqlite3.Connection, look_id: str) -> DoorLook | None:
+    r = conn.execute("SELECT * FROM door_looks WHERE id = ?", (look_id,)).fetchone()
+    return DoorLook(**dict(r)) if r else None
+
+
+def list_door_looks(conn: sqlite3.Connection, household_id: str, since_ms: int = 0,
+                    until_ms: int | None = None) -> list[DoorLook]:
+    q, args = _range("SELECT * FROM door_looks WHERE household_id = ?", [household_id], "requested_at", since_ms, until_ms)
+    return [DoorLook(**dict(r)) for r in conn.execute(q + " ORDER BY requested_at", args).fetchall()]
+
+
+def _range(q: str, args: list, col: str, since_ms: int, until_ms: int | None) -> tuple[str, list]:
+    q += f" AND {col} >= ?"
+    args = [*args, since_ms]
+    if until_ms is not None:
+        q += f" AND {col} < ?"
+        args.append(until_ms)
+    return q, args
+
+
 # --- events ---------------------------------------------------------------
 
 def upsert_event(conn: sqlite3.Connection, e: Event) -> None:
@@ -110,11 +179,20 @@ def insert_decision(conn: sqlite3.Connection, d: Decision) -> None:
     conn.commit()
 
 
+def _decision(r: sqlite3.Row) -> Decision:
+    return Decision(**{**dict(r), "evidence": json.loads(r["evidence"])})
+
+
 def get_decision(conn: sqlite3.Connection, decision_id: str) -> Decision | None:
     r = conn.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,)).fetchone()
-    if r is None:
-        return None
-    return Decision(**{**dict(r), "evidence": json.loads(r["evidence"])})
+    return _decision(r) if r else None
+
+
+def find_decision(conn: sqlite3.Connection, household_id: str, kind: DecisionKind, ts: int) -> Decision | None:
+    """Exact lookup used to keep rule evaluation idempotent (decision ts = the moment it became due)."""
+    r = conn.execute("SELECT * FROM decisions WHERE household_id = ? AND kind = ? AND ts = ?",
+                     (household_id, kind.value, ts)).fetchone()
+    return _decision(r) if r else None
 
 
 # --- alerts ---------------------------------------------------------------
@@ -152,6 +230,24 @@ def get_alert(conn: sqlite3.Connection, alert_id: str) -> Alert | None:
                  history=[AlertTransition(**dict(h)) for h in hist])
 
 
+def list_alerts(conn: sqlite3.Connection, household_id: str, *, open_only: bool = False,
+                since_ms: int = 0, until_ms: int | None = None) -> list[tuple[Alert, Decision]]:
+    """Alerts with their decisions, oldest decision first."""
+    q = ("SELECT a.id AS alert_id, d.* FROM alerts a JOIN decisions d ON d.id = a.decision_id"
+         " WHERE d.household_id = ?")
+    q, args = _range(q, [household_id], "d.ts", since_ms, until_ms)
+    if open_only:
+        q += f" AND a.state IN ({','.join('?' * len(OPEN_STATES))})"
+        args += list(OPEN_STATES)
+    rows = conn.execute(q + " ORDER BY d.ts", args).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        alert_id = d.pop("alert_id")
+        out.append((get_alert(conn, alert_id), Decision(**{**d, "evidence": json.loads(d["evidence"])})))
+    return out
+
+
 # --- visits ---------------------------------------------------------------
 
 def insert_visit(conn: sqlite3.Connection, v: Visit) -> None:
@@ -178,10 +274,6 @@ def insert_checkin(conn: sqlite3.Connection, c: CheckIn) -> None:
 
 
 def list_checkins(conn: sqlite3.Connection, household_id: str, since_ms: int = 0, until_ms: int | None = None) -> list[CheckIn]:
-    q = "SELECT * FROM checkins WHERE household_id = ? AND ts >= ?"
-    args: list = [household_id, since_ms]
-    if until_ms is not None:
-        q += " AND ts < ?"
-        args.append(until_ms)
+    q, args = _range("SELECT * FROM checkins WHERE household_id = ?", [household_id], "ts", since_ms, until_ms)
     rows = conn.execute(q + " ORDER BY ts", args).fetchall()
     return [CheckIn(**dict(r)) for r in rows]

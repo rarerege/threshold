@@ -29,6 +29,7 @@ class EventType(StrEnum):
 
 class DecisionKind(StrEnum):
     MISSED_CHECKIN = "missed_checkin"
+    HELP_REQUESTED = "help_requested"  # parent answered the check-in with needs_help
     VISIT_MATCHED = "visit_matched"
     VISIT_UNEXPECTED = "visit_unexpected"
 
@@ -55,6 +56,45 @@ class Weekday(StrEnum):
     FRI = "fri"
     SAT = "sat"
     SUN = "sun"
+
+
+def _check_hhmm(v: str) -> str:
+    h, _, m = v.partition(":")
+    if not (h.isdigit() and m.isdigit() and len(m) == 2 and 0 <= int(h) < 24 and 0 <= int(m) < 60):
+        raise ValueError(f"expected HH:MM, got {v!r}")
+    return f"{int(h):02d}:{m}"
+
+
+class Household(BaseModel):
+    """Caregiver-set routine and escalation timings for one parent."""
+
+    id: str
+    parent_name: str = "Dad"
+    tz: str = "Asia/Kolkata"  # IANA zone of the parent's home
+    checkin_by: str = "10:00"  # local HH:MM
+    grace_min: int = Field(30, ge=0)  # after checkin_by, before a missed_checkin decision
+    reprompt_min: int = Field(10, ge=1)  # checking_in -> caregiver_alerted
+    secondary_after_min: int = Field(20, ge=1)  # caregiver_alerted (unacknowledged) -> secondary_alerted
+    monitoring_since: int = Field(default_factory=now_ms)  # deadlines before this are never evaluated
+    paused_until: int | None = None
+    pause_reason: str = ""
+
+    @field_validator("checkin_by")
+    @classmethod
+    def _hhmm(cls, v: str) -> str:
+        return _check_hhmm(v)
+
+
+class DoorLook(BaseModel):
+    """One "look at the door": a snapshot taken inside the on_demand event a live view created."""
+
+    id: str = Field(default_factory=new_id)
+    household_id: str
+    device_id: str
+    requested_at: int
+    snapshot_ts: int
+    snapshot_path: str
+    ring_event_id: str | None = None  # filled once the event is listed (~45 s later)
 
 
 class Event(BaseModel):
@@ -108,10 +148,7 @@ class Visit(BaseModel):
     @field_validator("start", "end")
     @classmethod
     def _hhmm(cls, v: str) -> str:
-        h, _, m = v.partition(":")
-        if not (h.isdigit() and m.isdigit() and len(m) == 2 and 0 <= int(h) < 24 and 0 <= int(m) < 60):
-            raise ValueError(f"expected HH:MM, got {v!r}")
-        return f"{int(h):02d}:{m}"
+        return _check_hhmm(v)
 
 
 class CheckIn(BaseModel):
