@@ -86,7 +86,7 @@ class RingClient:
     def from_env(cls, **kwargs: Any) -> "RingClient":
         from dotenv import load_dotenv
 
-        load_dotenv()
+        load_dotenv(override=True)  # pick up a token refreshed in .env without restarting
         return cls(os.environ.get("RING_ACCESS_TOKEN", ""), os.environ.get("RING_API_BASE", DEFAULT_BASE_URL), **kwargs)
 
     async def __aenter__(self) -> "RingClient":
