@@ -108,7 +108,44 @@ How the escalation works. The rules are deterministic, in `core/engine/`, and co
 
 The result pane shows the text block, the structured content (validated against the tool's output schema) and, for `check_the_door`, the image.
 
-*TODO (Phase 4):* web client.
+### Web MCP client / Alexa+ simulator (Phase 4)
+
+The server also serves the web client on the same origin, so no CORS is needed: open **http://127.0.0.1:8000/**.
+
+- The page is a real MCP client written against the wire protocol (`web/mcp-client.js`). It sends `initialize` (2025-11-25), then `notifications/initialized` and `tools/list`, then a `tools/call` for each question. It handles both JSON and SSE responses and echoes `Mcp-Session-Id` and `MCP-Protocol-Version` on every request.
+- Typed questions go through a keyword router (`web/router.js`) that picks one tool. Bedrock Converse replaces it in the next phase.
+- The **JSON-RPC** drawer at the bottom shows every raw request and response. Base64 image data is shortened there only.
+- The right-hand panel simulates Dad's morning check-in (`record_checkin`) and shows today's status, polled every 20 s.
+- `pause_monitoring` always asks for confirmation in the page before it calls the tool again with `confirm=true`.
+
+Router tests (Node 18+; no packages needed):
+
+```powershell
+node --test web/router.test.mjs
+```
+
+## Demo: clean run
+
+```powershell
+Remove-Item data\threshold.db -ErrorAction SilentlyContinue   # optional: start from an empty state
+.\.venv\Scripts\python.exe -m core.mcp_server
+```
+
+1. Generate a fresh token in the Ring Developer Playground and paste it into `.env`. The server re-reads `.env`, so it doesn't need restarting.
+2. Open http://127.0.0.1:8000/. The header should read `threshold · MCP 2025-11-25 · 7 tools`.
+3. Ask **"Can I see Dad's door?"**. This calls `tools/call check_the_door`, which runs a Ring live view and shows a real snapshot from the Playground device in about 10–15 s.
+4. Ask **"Did Dad check in today?"**. This calls `get_routine_status`, which answers from SQLite. Click **I'm OK** in Dad's panel and ask again to see it change.
+5. Optionally, ask "What happened today?". About 45 s after a door check, its Ring `on_demand` event id is linked as evidence.
+
+To see the escalation ladder live, run with a compressed schedule on a fresh DB:
+
+```powershell
+$env:THRESHOLD_DB='data/ladder.db'; $env:THRESHOLD_CHECKIN_BY=(Get-Date).AddMinutes(2).ToString('HH:mm')
+$env:THRESHOLD_GRACE_MIN='0'; $env:THRESHOLD_REPROMPT_MIN='1'; $env:THRESHOLD_SECONDARY_AFTER_MIN='1'
+.\.venv\Scripts\python.exe -m core.mcp_server
+```
+
+The Today panel then steps through checking in → caregiver alerted → secondary alerted, one minute apart. "I'm on it" acknowledges it.
 
 ### MCP gate (Phase 0)
 
