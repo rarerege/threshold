@@ -10,6 +10,8 @@ dependencies = [
     "pydantic>=2.11",
     "fastapi",
     "python-dotenv",
+    "uvicorn",
+    "tzdata",  # IANA zones for zoneinfo on Windows
 ]
 
 [project.optional-dependencies]

@@ -70,7 +70,45 @@ Needs a fresh token in `.env`.
 
 How "look at the door" works without a WebRTC stack: Threshold sends a WHEP offer, which on its own makes the device record an `on_demand` event. It downloads an `at_timestamp` snapshot from inside that event while the session is still open, then closes the session. The event only appears in history after its ~40 s window ends, so its id is matched afterwards by start time. See `docs/gates.md` and FL-05.
 
-*TODO (Phases 3–4):* MCP server, web client.
+### MCP server (Phase 3)
+
+```powershell
+.\.venv\Scripts\python.exe -m core.mcp_server          # http://127.0.0.1:8000/mcp (Streamable HTTP)
+.\scripts\verify_mcp.ps1                               # raw JSON-RPC: initialize -> tools/list -> every tool
+.\scripts\verify_mcp.ps1 -SkipDoor                     # same, without calling Ring
+```
+
+State lives in `data\threshold.db` (SQLite, git-ignored). Door snapshots are saved in `data\snapshots\` and served at `/snapshots/<id>.jpg`. The routine (parent name, time zone, check-in time, grace and escalation timings) comes from the `THRESHOLD_*` variables in `.env` the first time the household is created. Delete the DB to apply new values.
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `get_routine_status` | read | "Did Dad check in today?": today's state, deadline, open alerts with full history |
+| `get_day_summary` | read | Check-ins, alerts, door snapshots and expected visits for a day |
+| `record_checkin` | write | Parent's answer: `ok` / `needs_help` / `no_answer` |
+| `add_expected_visit` | write | Recurring expected visit (label, HH:MM–HH:MM, weekdays) |
+| `acknowledge_alert` | write | Caregiver acknowledges an alert, which stops escalation |
+| `pause_monitoring` | write, **needs confirmation** | No change unless `confirm=true`; `hours=0` resumes |
+| `check_the_door` | Ring | Live view → `on_demand` event → snapshot (inline image + URL), ~10 s |
+
+How the escalation works. The rules are deterministic, in `core/engine/`, and covered by tests on a fake clock:
+
+- No `ok`/`needs_help` check-in by `checkin_by + grace` creates a `missed_checkin` decision, and its alert enters **checking_in** (the parent is asked again).
+- After `reprompt_min` it moves to **caregiver_alerted**; after `secondary_after_min` without an acknowledgement, to **secondary_alerted**.
+- The parent answering `ok`, or the caregiver acknowledging, moves it to **resolved**.
+- `needs_help` opens a `help_requested` alert directly at **caregiver_alerted**.
+- Every step is a row in `alert_transitions`, stamped with the time it was *due*, so a late or restarted evaluator writes the same audit trail.
+- A 30 s background timer applies due steps, and every tool call does too.
+
+#### MCP Inspector
+
+1. Start the server as above.
+2. Run `npx @modelcontextprotocol/inspector` and open the URL it prints.
+3. Set **Transport Type** to *Streamable HTTP* and **URL** to `http://127.0.0.1:8000/mcp`, then click **Connect**.
+4. Open **Tools** → **List Tools**, pick a tool, fill in its arguments and click **Run Tool**.
+
+The result pane shows the text block, the structured content (validated against the tool's output schema) and, for `check_the_door`, the image.
+
+*TODO (Phase 4):* web client.
 
 ### MCP gate (Phase 0)
 
