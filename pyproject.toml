@@ -1,0 +1,24 @@
+[project]
+name = "threshold"
+version = "0.1.0"
+description = "Caretaking agent for adult children of parents living alone (Alexa+ MCP + Ring)."
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=2.3,<3",
+    "httpx>=0.28",
+    "pydantic>=2.11",
+    "fastapi",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[tool.pytest.ini_options]
+testpaths = ["core/tests"]
+asyncio_mode = "auto"
+markers = ["live: calls the real Ring Playground API (needs RING_ACCESS_TOKEN)"]
+
+[tool.setuptools.packages.find]
+include = ["core*"]

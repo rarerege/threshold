@@ -1,0 +1,15 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime data and media (snapshots, recorded binaries, SQLite db)
+data/
+*.jpg
+*.bin
+*.db
+*.egg-info/
