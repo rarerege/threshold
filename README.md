@@ -124,6 +124,40 @@ Router tests (Node 18+; no packages needed):
 node --test web/router.test.mjs
 ```
 
+### Bedrock Converse router (AWS Builder)
+
+Bedrock replaces the keyword router as the page's default when it's configured. The page stays the MCP client:
+
+1. The page sends the caregiver's words to `POST /assistant` on our server, which holds the AWS credentials.
+2. The server calls **Bedrock Converse**, offering the 7 MCP tools as `toolSpec`s taken from `tools/list`, and returns the tool the model chose.
+3. The page runs that tool itself via MCP `tools/call`, then posts the result back.
+4. A second Converse turn writes a one- or two-sentence answer from that result.
+
+Guardrails live in code (`core/orchestrator/bedrock.py`):
+
+- Only the MCP tools can be called.
+- `confirm` is hidden from `pause_monitoring` and stripped from model input, so only the Confirm button in the page can pause monitoring.
+- Snapshots are never sent to the model.
+- At most 2 tool calls per question.
+- Any clock time in the model's answer must appear in the tool result; otherwise the tool's own text is shown instead.
+
+If Bedrock isn't configured or errors, the page falls back to the keyword router and says so.
+
+Setup:
+
+1. Add AWS keys (an IAM user with `bedrock:InvokeModel` and `bedrock:List*` is enough) and `AWS_REGION` to `.env`.
+2. Run the gate. It lists the Anthropic models and inference profiles you can use, makes a Converse tool-use round trip, and prints the `BEDROCK_MODEL_ID` line to add to `.env`:
+   ```powershell
+   .\.venv\Scripts\python.exe scripts\bedrock_gate.py
+   ```
+3. Compare routing accuracy on `web/eval_phrases.json`:
+   ```powershell
+   node scripts/eval_keywords.mjs                       # keyword router: 19/25
+   .\.venv\Scripts\python.exe scripts\eval_bedrock.py   # Bedrock router
+   ```
+
+The server re-reads `.env` until Bedrock is available, so no restart is needed after adding keys. Offline tests (`core/tests/test_bedrock.py`) use botocore's Stubber, and every request is checked against the Converse input shape (see FL-06).
+
 ## Demo: clean run
 
 ```powershell

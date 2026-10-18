@@ -136,3 +136,30 @@
 
 \- \*\*Suggestion:\*\* Return the on\_demand event id in the WHEP response (header or body), list in-progress events with `end: null`, and document event timing and retention.
 
+
+\## FL-06 — botocore Stubber skips request parameter validation
+
+\- \*\*Date:\*\* 18 Oct 2026, \~22:30 IST
+
+\- \*\*Tool:\*\* botocore 1.43.114 `botocore.stub.Stubber` with the bedrock-runtime client (Converse)
+
+\- \*\*Task attempted:\*\* Unit-test the Bedrock router offline and rely on botocore to reject any Converse field the real API doesn't define.
+
+\- \*\*Steps taken:\*\*
+
+&#x20; 1. Wrote a test calling `client.converse(modelId=..., messages=[], toolChoices={...})` (misspelt field) under an active Stubber, expecting `ParamValidationError`.
+
+&#x20; 2. Got `UnStubbedResponseError` instead: the Stubber intercepts the call before parameter validation runs, so the bogus field was accepted.
+
+&#x20; 3. Checked the other direction: `add_response` *does* validate stubbed responses against the output shape (a missing `usage`/`metrics` raised `ParamValidationError`).
+
+\- \*\*Expected:\*\* Stubbed calls validate request parameters the same way real calls do.
+
+\- \*\*Actual:\*\* Responses are validated; requests are not (unless `expected_params` is given, which only compares values).
+
+\- \*\*Severity:\*\* Minor (≈10 min), but it would have silently hidden invented request fields.
+
+\- \*\*Workaround:\*\* The test fixture registers a `provide-client-params.bedrock-runtime.Converse` hook that calls `botocore.validate.validate_parameters(params, operation_model.input_shape)`; a test asserts the misspelt field now fails.
+
+\- \*\*Suggestion:\*\* Validate request params in Stubber by default (or offer `Stubber(client, validate_params=True)`), and say so in the Stubber docs.
+
