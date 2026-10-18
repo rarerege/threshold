@@ -39,6 +39,8 @@
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
     .dot.on { background: var(--ok); } .dot.off { background: var(--bad); }
     #conn { margin-left: auto; }
+    .router-select { border: 0; background: transparent; color: var(--text); font-size: 12px; padding: 0 2px; }
+    #router-note { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 16px 20px 90px;
            max-width: 1200px; margin: 0 auto; }
     @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 12px 16px 90px; } }
@@ -113,6 +115,14 @@
   <header>
     <h1>Threshold</h1>
     <span class="sub">Alexa+ simulator · a real MCP client over Streamable HTTP</span>
+    <span class="chip">
+      <label for="router">Router</label>
+      <select id="router" class="router-select">
+        <option value="bedrock">Bedrock Converse</option>
+        <option value="keywords">Keywords</option>
+      </select>
+      <span id="router-note"></span>
+    </span>
     <span id="conn" class="chip"><span class="dot"></span><span id="conn-text">Connecting…</span></span>
     <button id="reconnect" class="btn" hidden>Reconnect</button>
   </header>

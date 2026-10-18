@@ -42,6 +42,18 @@ function onTraffic(e) {
   $("#traffic").prepend(item);
   $("#session-info").textContent = e.sessionId ? `Mcp-Session-Id ${e.sessionId.slice(0, 8)}…` : "";
 }
+function logAssistant(request, status, body, ms) {
+  rpcCount++;
+  $("#rpc-count").textContent = rpcCount;
+  const bad = status >= 400;
+  const what = body?.type === "tool_call" ? `→ ${body.name}` : body?.type || "";
+  $("#traffic").prepend(el("details", { class: "rpc" },
+    el("summary", {}, el("span", {}, "Bedrock"), el("strong", {}, `POST /assistant ${what}`),
+      el("span", { class: bad ? "s bad" : "s" }, `HTTP ${status}`),
+      el("span", { class: "muted" }, `${ms} ms${body?.latency_ms ? ` (model ${body.latency_ms} ms)` : ""}`)),
+    el("pre", {}, "→ " + JSON.stringify(request, null, 2)),
+    el("pre", {}, "← " + JSON.stringify(body, null, 2))));
+}
 $("#drawer-toggle").addEventListener("click", () => {
   const open = $("#drawer").classList.toggle("open");
   $("#drawer-toggle").setAttribute("aria-expanded", String(open));
@@ -109,24 +121,84 @@ let client;
 async function runTool(tool, args) {
   const waiting = say("bot", el("span", { class: "tool" }, `tools/call ${tool}`),
     el("div", { class: "pending" }, tool === "check_the_door" ? "Starting a live view and taking a snapshot (about 10 s)…" : "Working…"));
+  let result;
   try {
-    const result = await client.callTool(tool, args);
+    result = await client.callTool(tool, args);
     waiting.replaceChildren(...renderResult(tool, args, result));
     if (result.isError) waiting.classList.add("err");
   } catch (e) {
+    result = { isError: true, content: [{ type: "text", text: `Error: ${e.message}` }] };
     waiting.replaceChildren(el("span", { class: "tool" }, `tools/call ${tool}`), el("div", {}, `Error: ${e.message}`));
     waiting.classList.add("err");
   }
   waiting.scrollIntoView({ block: "end", behavior: "smooth" });
   refreshStatus();
+  return result;
+}
+
+// --- routing: Bedrock Converse (server-side) with the keyword router as fallback ---------
+
+const routerState = { mode: "keywords", bedrock: null, conversationId: null };
+
+async function postAssistant(body) {
+  const started = performance.now();
+  const res = await fetch("assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({ type: "error", reason: `HTTP ${res.status}` }));
+  logAssistant(body, res.status, data, Math.round(performance.now() - started));
+  if (res.status === 503 || data.type === "unavailable") throw Object.assign(new Error(data.reason || "Bedrock unavailable"), { fallback: true });
+  if (!res.ok) throw new Error(data.reason || `HTTP ${res.status}`);
+  return data;
+}
+
+async function askBedrock(text) {
+  let r = await postAssistant({ conversation_id: routerState.conversationId, text });
+  routerState.conversationId = r.conversation_id;
+  while (r.type === "tool_call") {
+    const result = await runTool(r.name, r.input);  // the page itself runs tools/call over MCP
+    const textOut = result.content?.find((c) => c.type === "text")?.text || "";
+    r = await postAssistant({ conversation_id: r.conversation_id, tool_result: {
+      tool_use_id: r.tool_use_id, text: textOut, structured: result.structuredContent ?? null, is_error: !!result.isError } });
+  }
+  const label = `Bedrock · ${r.model_id}${r.source === "tool_text" ? ` · used tool text (${r.note})` : ""}`;
+  say("bot", el("span", { class: "tool" }, label), el("div", {}, r.text));
+}
+
+function askKeywords(text, note) {
+  const r = route(text);
+  if (note) say("bot", el("div", { class: "caption" }, note));
+  if (r.kind === "tool") return runTool(r.tool, r.args);
+  if (r.kind === "help") say("bot", el("div", {}, r.text));
 }
 
 async function ask(text) {
   say("user", text);
-  const r = route(text);
-  if (r.kind === "tool") return runTool(r.tool, r.args);
-  if (r.kind === "help") say("bot", el("div", {}, r.text));
+  if (routerState.mode !== "bedrock") return askKeywords(text);
+  try {
+    await askBedrock(text);
+  } catch (e) {
+    if (!e.fallback) return say("bot err", el("div", {}, `Error: ${e.message}`));
+    setRouter("keywords", `Bedrock unavailable: ${e.message}`);
+    await askKeywords(text, `Bedrock unavailable (${e.message}); used the keyword router.`);
+  }
 }
+
+function setRouter(mode, reason = "") {
+  routerState.mode = mode;
+  $("#router").value = mode;
+  $("#router-note").textContent = mode === "bedrock" ? `${routerState.bedrock.model_id} · ${routerState.bedrock.region}` : reason;
+}
+
+async function initRouter() {
+  try {
+    routerState.bedrock = await (await fetch("assistant/status")).json();
+  } catch {
+    routerState.bedrock = { available: false, reason: "status endpoint unreachable" };
+  }
+  $("#router").querySelector('option[value="bedrock"]').disabled = !routerState.bedrock.available;
+  if (routerState.bedrock.available) setRouter("bedrock");
+  else setRouter("keywords", `Bedrock off: ${routerState.bedrock.reason}`);
+}
+$("#router").addEventListener("change", (ev) => setRouter(ev.target.value, "keyword router selected"));
 
 $("#ask").addEventListener("submit", (ev) => {
   ev.preventDefault();
@@ -193,3 +265,4 @@ async function connect() {
 $("#reconnect").addEventListener("click", connect);
 setInterval(refreshStatus, POLL_MS);
 connect();
+initRouter();
