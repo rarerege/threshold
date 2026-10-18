@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 from core.engine.service import Engine
 from core.mcp_server.server import build_app, build_server
+from core.orchestrator.bedrock import BedrockAssistant
+from core.orchestrator.http import add_assistant_routes
 from core.store import db
 from core.store.models import Household
 
@@ -39,6 +41,12 @@ def main() -> None:
 
     mcp = build_server(engine, household_id, snapshot_dir=ROOT / "data" / "snapshots", web_dir=ROOT / "web",
                        public_base_url=os.environ.get("PUBLIC_BASE_URL", f"http://{host}:{port}"))
+
+    def make_assistant(tools: list[dict]) -> BedrockAssistant:
+        load_dotenv(ROOT / ".env", override=True)  # AWS settings added to .env later are picked up without a restart
+        return BedrockAssistant.from_env(tools, parent_name=engine.household(household_id).parent_name)
+
+    add_assistant_routes(mcp, make_assistant)
     print(f"\n  Threshold web client: http://{host}:{port}/\n  MCP endpoint:          http://{host}:{port}/mcp\n")
     uvicorn.run(build_app(mcp, engine, household_id), host=host, port=port, log_level="info")
 

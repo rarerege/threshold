@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv",
     "uvicorn",
     "tzdata",  # IANA zones for zoneinfo on Windows
+    "boto3>=1.43",  # Bedrock Converse
 ]
 
 [project.optional-dependencies]
