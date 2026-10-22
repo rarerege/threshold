@@ -143,6 +143,15 @@ Guardrails live in code (`core/orchestrator/bedrock.py`):
 
 If Bedrock isn't configured or errors, the page falls back to the keyword router and says so.
 
+### Voice input and spoken replies (Phase 5)
+
+The web client supports voice input and text-to-speech using the browser's Web Speech API (no dependencies).
+
+- **Mic button** next to the Ask button: uses `window.SpeechRecognition` (or `webkitSpeechRecognition`) with `lang: "en-IN"` and `interimResults: true`. Interim text appears in the input box as you speak; the final transcript is submitted through the existing `ask()` function. Click again to stop. The button is hidden when speech recognition is unavailable (no errors shown).
+- **Speak replies** checkbox (off by default): when on, the text of each new bot reply is read aloud with `window.speechSynthesis`. The JSON-RPC debug drawer is never spoken.
+
+Both features need a real browser with microphone access. Voice input requires a user gesture and may prompt for microphone permission.
+
 Setup:
 
 1. Add AWS keys (an IAM user with `bedrock:InvokeModel` and `bedrock:List*` is enough) and `AWS_REGION` to `.env`.

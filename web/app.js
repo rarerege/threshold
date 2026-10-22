@@ -266,3 +266,77 @@ $("#reconnect").addEventListener("click", connect);
 setInterval(refreshStatus, POLL_MS);
 connect();
 initRouter();
+
+// --- voice input + spoken replies ------------------------------------------------
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = $("#mic");
+const qInput = $("#q");
+const speakReplies = $("#speak-replies");
+
+// Show the mic button only if speech recognition is supported
+if (SR) micBtn.hidden = false;
+
+let recog = null;
+let listening = false;
+let finalText = "";
+
+function setListening(on) {
+  listening = on;
+  micBtn.classList.toggle("listening", on);
+  micBtn.setAttribute("aria-label", on ? "Stop listening" : "Voice input");
+}
+
+if (SR) {
+  micBtn.addEventListener("click", () => {
+    if (listening) { recog.stop(); return; }
+    finalText = "";
+    recog = new SR();
+    recog.lang = "en-IN";
+    recog.interimResults = true;
+    recog.onstart = () => setListening(true);
+    recog.onend = () => {
+      setListening(false);
+      // Submit the final transcript through the existing ask() path
+      if (finalText.trim()) {
+        qInput.value = finalText.trim();
+        $("#ask").requestSubmit();
+      }
+    };
+    recog.onerror = () => setListening(false);
+    recog.onresult = (ev) => {
+      let interim = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i];
+        if (t.isFinal) finalText += t[0].transcript;
+        else interim += t[0].transcript;
+      }
+      // Show interim text in the input box as the user speaks
+      qInput.value = finalText + interim;
+    };
+    recog.start();
+  });
+}
+
+// Speak new bot replies aloud when the checkbox is on.
+// Uses a MutationObserver on #log so it catches every new .msg.bot element,
+// including replies rendered by ask(), runTool(), or the keyword router.
+if (window.speechSynthesis) {
+  const voiceObserver = new MutationObserver((mutations) => {
+    if (!speakReplies.checked) return;
+    for (const mut of mutations) {
+      for (const node of mut.addedNodes) {
+        if (node.nodeType === 1 && node.classList.contains("msg") && node.classList.contains("bot")) {
+          const text = node.textContent?.trim();
+          if (text) {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = "en-IN";
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(u);
+          }
+        }
+      }
+    }
+  });
+  voiceObserver.observe($("#log"), { childList: true });
+}
