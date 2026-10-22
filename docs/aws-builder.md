@@ -39,11 +39,21 @@ It stayed inside the allowed files. Its only side effect was a local `.kiro/sett
 
 **Not verified:** actual speech recognition needs a real microphone and the user's permission prompt.
 
-**Screenshots** (Kiro Crew session; add these as PNGs, since `*.jpg` is git-ignored):
+**Screenshots** from the Kiro Crew session "Threshold MCP Client Development Task", 22 Oct 2026:
 
-- `docs/img/kiro-crew-task.png`: the task given to the agent
-- `docs/img/kiro-crew-activity.png`: the agent's tool calls and results
-- `docs/img/kiro-crew-summary.png`: the agent's final summary
+*The task given to the agent:*
+
+![Kiro Crew: the task pasted into the session](img/kiro-crew-task.png)
+
+*The agent at work: it "worked through 18 steps", creating and editing `index.html`, `app.js` and `README.md` (right: Kiro Crew's editor on `web/app.js`):*
+
+![Kiro Crew: agent steps and editor](img/kiro-crew-activity.png)
+
+*The agent's final summary and its own verification table (`node --check`, router tests 6/6, pytest 75 passed):*
+
+![Kiro Crew: final summary and verification](img/kiro-crew-summary.png)
+
+The summary describes the original `MutationObserver` approach. That's the version our review replaced (see the table above).
 
 ## 2. Amazon Bedrock Converse: tool-use router
 
