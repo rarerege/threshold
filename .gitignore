@@ -13,3 +13,6 @@ data/
 *.bin
 *.db
 *.egg-info/
+
+# Local tool settings (Kiro Crew workspace)
+.kiro/settings/
