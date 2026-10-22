@@ -118,7 +118,7 @@ function renderResult(tool, args, result) {
 }
 
 let client;
-async function runTool(tool, args) {
+async function runTool(tool, args, { speakResult = true } = {}) {
   const waiting = say("bot", el("span", { class: "tool" }, `tools/call ${tool}`),
     el("div", { class: "pending" }, tool === "check_the_door" ? "Starting a live view and taking a snapshot (about 10 s)…" : "Working…"));
   let result;
@@ -133,6 +133,7 @@ async function runTool(tool, args) {
   }
   waiting.scrollIntoView({ block: "end", behavior: "smooth" });
   refreshStatus();
+  if (speakResult) speak(result.content?.find((c) => c.type === "text")?.text);
   return result;
 }
 
@@ -154,20 +155,25 @@ async function askBedrock(text) {
   let r = await postAssistant({ conversation_id: routerState.conversationId, text });
   routerState.conversationId = r.conversation_id;
   while (r.type === "tool_call") {
-    const result = await runTool(r.name, r.input);  // the page itself runs tools/call over MCP
+    // The page itself runs tools/call over MCP; only Bedrock's final answer is spoken.
+    const result = await runTool(r.name, r.input, { speakResult: false });
     const textOut = result.content?.find((c) => c.type === "text")?.text || "";
     r = await postAssistant({ conversation_id: r.conversation_id, tool_result: {
       tool_use_id: r.tool_use_id, text: textOut, structured: result.structuredContent ?? null, is_error: !!result.isError } });
   }
   const label = `Bedrock · ${r.model_id}${r.source === "tool_text" ? ` · used tool text (${r.note})` : ""}`;
   say("bot", el("span", { class: "tool" }, label), el("div", {}, r.text));
+  speak(r.text);
 }
 
 function askKeywords(text, note) {
   const r = route(text);
   if (note) say("bot", el("div", { class: "caption" }, note));
   if (r.kind === "tool") return runTool(r.tool, r.args);
-  if (r.kind === "help") say("bot", el("div", {}, r.text));
+  if (r.kind === "help") {
+    say("bot", el("div", {}, r.text));
+    speak(r.text);
+  }
 }
 
 async function ask(text) {
@@ -303,7 +309,13 @@ if (SR) {
         $("#ask").requestSubmit();
       }
     };
-    recog.onerror = () => setListening(false);
+    recog.onerror = (ev) => {
+      setListening(false);
+      if (ev.error === "no-speech" || ev.error === "aborted") return;  // user was silent or stopped
+      const why = ev.error === "not-allowed" || ev.error === "service-not-allowed"
+        ? "microphone permission was denied" : ev.error;
+      say("bot err", el("div", {}, `Voice input stopped: ${why}. You can still type your question.`));
+    };
     recog.onresult = (ev) => {
       let interim = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -318,25 +330,13 @@ if (SR) {
   });
 }
 
-// Speak new bot replies aloud when the checkbox is on.
-// Uses a MutationObserver on #log so it catches every new .msg.bot element,
-// including replies rendered by ask(), runTool(), or the keyword router.
-if (window.speechSynthesis) {
-  const voiceObserver = new MutationObserver((mutations) => {
-    if (!speakReplies.checked) return;
-    for (const mut of mutations) {
-      for (const node of mut.addedNodes) {
-        if (node.nodeType === 1 && node.classList.contains("msg") && node.classList.contains("bot")) {
-          const text = node.textContent?.trim();
-          if (text) {
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = "en-IN";
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(u);
-          }
-        }
-      }
-    }
-  });
-  voiceObserver.observe($("#log"), { childList: true });
+// Speak a reply aloud when "Speak replies" is on. Called with the final answer text only:
+// a bubble is added as a "Working…" placeholder and filled in later, so watching the log
+// for new bubbles would read the placeholder (and the tools/call label) instead of the answer.
+function speak(text) {
+  if (!speakReplies?.checked || !window.speechSynthesis || !text) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-IN";
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
 }
