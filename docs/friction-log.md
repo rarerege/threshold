@@ -163,3 +163,58 @@
 
 \- \*\*Suggestion:\*\* Validate request params in Stubber by default (or offer `Stubber(client, validate_params=True)`), and say so in the Stubber docs.
 
+
+\## FL-07 — AWS account activation blocked live Bedrock use
+
+\- \*\*Date:\*\* 18–22 Oct 2026
+
+\- \*\*Tool:\*\* AWS account sign-up and console (needed for Amazon Bedrock Converse)
+
+\- \*\*Task attempted:\*\* Create IAM access keys and call Bedrock Converse (Claude, tool use) for the caregiver's natural-language router.
+
+\- \*\*Steps taken:\*\*
+
+&#x20; 1. Created an AWS account. The console showed "Complete your account setup": either registration wasn't finished, or the account was on the free plan, which "has limited access to certain services and features".
+
+&#x20; 2. Tried to finish the payment-verification step; it failed at sign-in.
+
+&#x20; 3. Couldn't get working credentials before feature freeze, so no live Converse call was possible.
+
+\- \*\*Expected:\*\* A new account can reach Bedrock within the hackathon timeline, or the console says clearly whether Bedrock (and which models) is available on the free plan.
+
+\- \*\*Actual:\*\* Activation can take up to 24 h after verification. The page didn't say whether Bedrock was covered by the free-plan limits, and payment verification wouldn't complete.
+
+\- \*\*Severity:\*\* Critical for the live Bedrock integration (blocked); minor for the project overall (fallback in place).
+
+\- \*\*Workaround:\*\* Built the Bedrock router against the botocore service model with Stubber tests and a keyword-router fallback (`docs/aws-builder.md`). Used Kiro Crew, which needs only a free Kiro account, for the AWS Builder challenge.
+
+\- \*\*Suggestion:\*\* Offer hackathon sandbox accounts or credits with Bedrock pre-enabled, and state on the account-setup page which services and models the free plan includes.
+
+
+
+\## FL-08 — Kiro Crew's checks passed, but the feature was wrong
+
+\- \*\*Date:\*\* 22 Oct 2026
+
+\- \*\*Tool:\*\* Kiro Crew (Windows gateway, personal account)
+
+\- \*\*Task attempted:\*\* Delegate a bounded web feature (voice input + spoken replies) on a review branch, with explicit verification commands.
+
+\- \*\*Steps taken:\*\*
+
+&#x20; 1. Gave the task with file boundaries and three commands to run (`node --check`, router tests, pytest).
+
+&#x20; 2. The agent worked through 18 steps, stayed in scope, ran all three checks (pass) and committed. It flagged correctly that the microphone couldn't be verified without a browser.
+
+&#x20; 3. In review, with `speechSynthesis.speak` patched in the browser, "Speak replies" read `"tools/call get_routine_status Working…"`, the placeholder bubble, instead of the answer. Its `MutationObserver` fired when the bubble was added, before the tool result replaced the text.
+
+\- \*\*Expected:\*\* The agent's summary describes behaviour it verified, or labels UI behaviour as unverified.
+
+\- \*\*Actual:\*\* The checks we asked for can't observe browser behaviour, so they passed and the summary presented the feature as working.
+
+\- \*\*Severity:\*\* Minor (≈20 min to find and fix in review).
+
+\- \*\*Workaround:\*\* Reviewed on a branch, reproduced in the browser, and fixed in a separate commit (`5adfcaf`), keeping the agent's commit intact.
+
+\- \*\*Suggestion:\*\* For web tasks, let Kiro Crew drive a headless browser to check the behaviour it claims, or mark claims as untested in its summary.
+
