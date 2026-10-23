@@ -19,6 +19,8 @@ Copy-paste source for every field. Deadline: **Fri 23 Oct 2026, 12:00 PT (Sat 24
 
 ## 1. Text description
 
+> For Devpost's **project story** field, paste `docs/devpost-story.md`. It uses only basic Markdown (headings, bold, lists, links, inline code), which Devpost renders reliably. The summary below is for shorter description fields.
+
 **Threshold: a caretaking agent for adult children whose older parent lives alone.**
 
 Every morning, Dad hears "Good morning, how are you today?" and answers "I'm OK" or "I need help". If he doesn't answer by the time his family set (e.g. 10:00 plus a 30-minute grace period), Threshold runs a fixed, audited escalation ladder:
@@ -154,28 +156,28 @@ Used but not included: Ring's official `ring-api-helloworld` sample app, which w
 
 ## 7. Feature requests
 
-| Request | Why it matters | Urgency |
-|---|---|---|
-| **Ring Playground: seed sample motion and doorbell events, and add "simulate event" buttons that fire signed test webhooks** | Event-driven and caretaking apps can't be tested without US hardware; we had to redesign around on-demand checks (FL-02) | **Critical** |
-| **Ring: return the `on_demand` event id in the WHEP response, and list in-progress events with `end: null`** | Lets apps attach evidence right away instead of polling for about 45 s (FL-05) | Important |
-| **Ring: document the snapshot request body and `type` values; return 400 rather than 403 for missing fields** | Saves about 30 min of trial and error per developer (FL-01) | Important |
-| **AWS: hackathon sandbox accounts or credits with Bedrock enabled, and clear free-plan service limits** | Payment verification blocked our live Bedrock use (FL-07) | Important |
-| **Kiro Crew: optional browser-based verification for web tasks** | Unit checks passed on a UI bug (FL-08) | Nice-to-have |
-| **botocore Stubber: validate request params by default** | Stubbed tests silently accept invented fields (FL-06) | Nice-to-have |
+*(Basic Markdown only, no tables, so it renders on Devpost.)*
+
+1. **Ring Playground: seed sample motion and doorbell events, and add "simulate event" buttons that fire signed test webhooks.** Urgency: **Critical**. Event-driven and caretaking apps can't be tested without US hardware; we had to redesign around on-demand checks (FL-02).
+2. **Ring: return the `on_demand` event id in the WHEP response, and list in-progress events with `end: null`.** Urgency: **Important**. Apps could attach evidence right away instead of polling for about 45 s (FL-05).
+3. **Ring: document the snapshot request body and `type` values; return 400 rather than 403 for missing fields.** Urgency: **Important**. Saves about 30 minutes of trial and error per developer (FL-01).
+4. **AWS: hackathon sandbox accounts or credits with Bedrock enabled, and clear free-plan service limits.** Urgency: **Important**. Payment verification blocked our live Bedrock use (FL-07).
+5. **Kiro Crew: optional browser-based verification for web tasks.** Urgency: **Nice-to-have**. Unit checks passed on a UI bug (FL-08).
+6. **botocore Stubber: validate request parameters by default.** Urgency: **Nice-to-have**. Stubbed tests silently accept invented fields (FL-06).
 
 ---
 
 ## 8. Friction log
 
-There are 8 entries in `docs/friction-log.md`, each with the date, tool, task, steps, expected vs actual, severity, workaround and suggestion:
+There are 8 entries, each with the date, tool, task, steps, expected vs actual, severity, workaround and suggestion. Full log: https://github.com/rarerege/threshold/blob/main/docs/friction-log.md
 
-| ID | Tool | Summary | Severity |
-|---|---|---|---|
-| FL-01 | Ring snapshot API | Request body undocumented; missing field gives 403 not 400 | Major |
-| FL-02 | Ring Playground | No motion or doorbell events and no simulation | Major |
-| FL-03 | MCP Python SDK | 2.x renamed FastMCP to MCPServer | Minor |
-| FL-04 | Ring API gateway | Transient 500/503/504 without `Retry-After` | Minor |
-| FL-05 | Ring live view | Event timing undocumented; listed ~45 s late | Major |
-| FL-06 | botocore Stubber | Skips request validation | Minor |
-| FL-07 | AWS account | Activation blocked live Bedrock | Critical (for Bedrock) |
-| FL-08 | Kiro Crew | Checks passed on a UI behaviour bug | Minor |
+- **FL-01, Ring snapshot API (Major):** the request body is undocumented, and a missing field returns 403 rather than 400.
+- **FL-02, Ring Playground (Major):** there are no motion or doorbell events, and no way to simulate them.
+- **FL-03, MCP Python SDK (Minor):** 2.x renamed `FastMCP` to `MCPServer`.
+- **FL-04, Ring API gateway (Minor):** transient 500/503/504 errors without `Retry-After`.
+- **FL-05, Ring live view (Major):** event timing is undocumented, and events are listed about 45 s late.
+- **FL-06, botocore Stubber (Minor):** stubbed calls skip request validation.
+- **FL-07, AWS account (Critical for Bedrock):** activation blocked live Bedrock use.
+- **FL-08, Kiro Crew (Minor):** the agent's checks passed on a UI behaviour bug.
+
+If Devpost asks for each entry separately, copy the fields for each one from the full log.
