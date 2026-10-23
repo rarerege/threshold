@@ -66,11 +66,10 @@ The caregiver just asks in plain language:
 ## 3. Demo video (under 3:00, best material first, no music)
 
 **Setup before recording:**
-1. Delete `data\threshold.db`.
-2. Paste a **fresh Ring token** into `.env`.
-3. Start the server: `.\.venv\Scripts\python.exe -m core.mcp_server`.
-4. About 3 minutes before you record the ladder segment, start the compressed-ladder server on port 8001, using the commands in the README.
-5. Open both pages in Chrome.
+1. Main demo, port 8000, fresh `data\demo.db`, Dad due in 60 min: `.\scripts\demo_main.ps1`
+2. Ladder demo, port 8001, fresh `data\ladder.db`, steps a minute apart: run `.\scripts\demo_ladder.ps1` about 3 minutes before recording that segment.
+3. Paste a **fresh Ring token** into `.env` right before recording (it lasts 30 min).
+4. Open both pages in Chrome.
 
 | Time | Show | Say (roughly) |
 |---|---|---|

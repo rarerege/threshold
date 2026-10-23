@@ -180,15 +180,13 @@ Remove-Item data\threshold.db -ErrorAction SilentlyContinue   # optional: start 
 4. Ask **"Did Dad check in today?"**. This calls `get_routine_status`, which answers from SQLite. Click **I'm OK** in Dad's panel and ask again to see it change.
 5. Optionally, ask "What happened today?". About 45 s after a door check, its Ring `on_demand` event id is linked as evidence.
 
-To see the escalation ladder live, run with a compressed schedule on a fresh DB:
+To see the escalation ladder live, start a second server on port 8001 with a fresh DB and a compressed schedule. It runs alongside the main one:
 
 ```powershell
-$env:THRESHOLD_DB='data/ladder.db'; $env:THRESHOLD_CHECKIN_BY=(Get-Date).AddMinutes(2).ToString('HH:mm')
-$env:THRESHOLD_GRACE_MIN='0'; $env:THRESHOLD_REPROMPT_MIN='1'; $env:THRESHOLD_SECONDARY_AFTER_MIN='1'
-.\.venv\Scripts\python.exe -m core.mcp_server
+.\scripts\demo_ladder.ps1          # deadline in 2 min, then +1 min per step
 ```
 
-The Today panel then steps through checking in → caregiver alerted → secondary alerted, one minute apart. "I'm on it" acknowledges it.
+Open http://127.0.0.1:8001/. The Today panel steps through checking in → caregiver alerted → secondary alerted, one minute apart. "I'm on it" acknowledges it. Re-run the script to reset it.
 
 ### MCP gate (Phase 0)
 
