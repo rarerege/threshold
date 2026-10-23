@@ -43,6 +43,9 @@ Every step is timestamped, stored and can be acknowledged. "I need help" goes st
 - **Engine:** a check-in window rule produces a decision, which drives the escalation ladder, with an SQLite audit row for every step.
   - Each step is stamped with the time it was *due*, so a late or restarted evaluator writes the identical audit trail.
   - It's covered by fake-clock tests.
+  - With check-in time \\(t_c\\), grace \\(g\\), re-ask window \\(r\\) and secondary delay \\(s\\), all set by the family (defaults \\(g = 30\\), \\(r = 10\\), \\(s = 20\\) minutes):
+
+$$t_{\text{checking in}} = t_c + g \\quad t_{\text{caregiver}} = t_{\text{checking in}} + r \\quad t_{\text{secondary}} = t_{\text{caregiver}} + s$$
 - **AWS:**
   - **Kiro Crew** built the voice feature as a delegated agent task on a review branch.
   - An **Amazon Bedrock Converse** tool-use router is implemented with guardrails written in code:
